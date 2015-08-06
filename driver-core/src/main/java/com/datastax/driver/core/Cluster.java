@@ -1569,7 +1569,7 @@ public class Cluster implements Closeable {
                     // Now, check if there isn't pools to create/remove following the addition.
                     // We do that now only so that it's not called before we've set the node up.
                     for (SessionManager s : sessions)
-                        s.updateCreatedPools();
+                        s.updateCreatedPools().get();
 
                 } finally {
                     host.notificationsLock.unlock();
@@ -1840,7 +1840,7 @@ public class Cluster implements Closeable {
                     // Now, check if there isn't pools to create/remove following the addition.
                     // We do that now only so that it's not called before we've set the node up.
                     for (SessionManager s : sessions)
-                        s.updateCreatedPools();
+                        s.updateCreatedPools().get();
 
                 } finally {
                     host.notificationsLock.unlock();
@@ -2218,8 +2218,12 @@ public class Cluster implements Closeable {
             if (ccHost == null || loadBalancingPolicy().distance(ccHost) != HostDistance.LOCAL)
                 controlConnection.reconnect();
 
-            for (SessionManager s : sessions)
-                s.updateCreatedPools();
+            try {
+                for (SessionManager s : sessions)
+                    Uninterruptibles.getUninterruptibly(s.updateCreatedPools());
+            } catch (ExecutionException e) {
+                throw Exceptions.toUnchecked(e);
+            }
         }
 
         void refreshConnectedHost(Host host) {
