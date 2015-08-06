@@ -434,7 +434,7 @@ class Connection {
         Future future = null;
         try {
             logger.trace("{} Setting keyspace {}", this, keyspace);
-            long timeout = factory.getConnectTimeoutMillis();
+            long timeout = factory.getReadTimeoutMillis();
             // Note: we quote the keyspace below, because the name is the one coming from Cassandra, so it's in the right case already
             future = write(new Requests.Query("USE \"" + keyspace + '"'));
             Message.Response response = Uninterruptibles.getUninterruptibly(future, timeout, TimeUnit.MILLISECONDS);
