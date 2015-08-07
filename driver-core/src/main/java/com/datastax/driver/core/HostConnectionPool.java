@@ -25,6 +25,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.*;
 import org.slf4j.Logger;
@@ -98,6 +99,8 @@ class HostConnectionPool {
      *                         pool.
      */
     public ListenableFuture<Void> initAsync(Connection reusedConnection) {
+        String keyspace = manager.poolsState.keyspace;
+
         // Create initial core connections
         int capacity = options().getCoreConnectionsPerHost(hostDistance);
         final List<Connection> connections = Lists.newArrayListWithCapacity(capacity);
@@ -115,7 +118,7 @@ class HostConnectionPool {
             }
             reusedConnection = null;
             connections.add(connection);
-            connectionFutures.add(connectionFuture);
+            connectionFutures.add(setKeyspaceAsync(connectionFuture, connection, keyspace));
         }
 
         Executor initExecutor = manager.cluster.manager.configuration.getPoolingOptions().getInitializationExecutor();
@@ -147,6 +150,27 @@ class HostConnectionPool {
             }
         }, initExecutor);
         return initFuture;
+    }
+
+    private ListenableFuture<Void> setKeyspaceAsync(ListenableFuture<Void> initFuture, final Connection connection, final String keyspace) {
+        if (keyspace == null)
+            return initFuture;
+
+        ListenableFuture<Void> setKsFuture = Futures.transform(initFuture, new AsyncFunction<Void, Void>() {
+            @Override
+            public ListenableFuture<Void> apply(Void input) throws Exception {
+                return connection.setKeyspaceAsync(keyspace);
+            }
+        });
+        return Futures.withFallback(setKsFuture, new FutureFallback<Void>() {
+            @Override
+            public ListenableFuture<Void> create(Throwable t) throws Exception {
+                connection.closeAsync();
+                Throwables.propagateIfInstanceOf(t, ConnectionException.class);
+                Throwables.propagateIfInstanceOf(t, SetKeyspaceException.class);
+                throw Throwables.propagate(t);
+            }
+        });
     }
 
     // Clean up if we got an error at construction time but still created part of the core connections
@@ -402,6 +426,7 @@ class HostConnectionPool {
             if (newConnection == null) {
                 logger.debug("Creating new connection on busy pool to {}", host);
                 newConnection = manager.connectionFactory().open(this);
+                newConnection.setKeyspace(manager.poolsState.keyspace);
             }
             connections.add(newConnection);
 
@@ -619,7 +644,11 @@ class HostConnectionPool {
 
         volatile String keyspace;
 
-        public void setKeyspace(String keyspace) {
+        PoolState(String keyspace) {
+            this.keyspace = keyspace;
+        }
+
+        void setKeyspace(String keyspace) {
             this.keyspace = keyspace;
         }
     }
