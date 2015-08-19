@@ -990,7 +990,7 @@ class Connection {
 
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-            if (evt instanceof IdleStateEvent && ((IdleStateEvent)evt).state() == ALL_IDLE) {
+            if (!isClosed() && evt instanceof IdleStateEvent && ((IdleStateEvent)evt).state() == ALL_IDLE) {
                 logger.debug("{} was inactive for {} seconds, sending heartbeat", Connection.this, factory.configuration.getPoolingOptions().getHeartbeatIntervalSeconds());
                 write(HEARTBEAT_CALLBACK);
             }
