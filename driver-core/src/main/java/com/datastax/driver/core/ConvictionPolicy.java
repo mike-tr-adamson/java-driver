@@ -15,7 +15,6 @@
  */
 package com.datastax.driver.core;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -108,14 +107,13 @@ abstract class ConvictionPolicy {
                 return false;
 
             updateReconnectionTime();
-            if (wasFullyInitialized) {
-                int remaining = openConnections.decrementAndGet();
-                assert remaining >= 0;
-                Host.statesLogger.debug("[{}] remaining connections = {}", host, remaining);
-                return remaining == 0;
-            } else {
-                return false;
-            }
+            int remaining = (wasFullyInitialized)
+                ? openConnections.decrementAndGet()
+                : openConnections.get();
+
+            assert remaining >= 0;
+            Host.statesLogger.debug("[{}] remaining connections = {}", host, remaining);
+            return remaining == 0;
         }
 
         private synchronized void updateReconnectionTime() {
