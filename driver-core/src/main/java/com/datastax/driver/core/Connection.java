@@ -615,7 +615,8 @@ class Connection {
 
         if (isInitialized && !isDefunct.get()) {
             Host host = factory.manager.metadata.getHost(address);
-            host.convictionPolicy.signalConnectionClosed();
+            if(host != null)
+                host.convictionPolicy.signalConnectionClosed();
         }
 
         boolean terminated = tryTerminate(false);
