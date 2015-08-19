@@ -197,7 +197,8 @@ class Connection {
             @Override
             public void onSuccess(Void result) {
                 Host host = factory.manager.metadata.getHost(address);
-                host.convictionPolicy.signalConnectionCreated();
+                if(host != null)
+                    host.convictionPolicy.signalConnectionCreated();
                 isInitialized = true;
             }
 
